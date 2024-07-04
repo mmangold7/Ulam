@@ -51,20 +51,14 @@ generatePrimes limit = do
 markNonPrimesWithProgress :: M.IOVector Int -> Int -> Int -> IO ()
 markNonPrimesWithProgress vec totalSteps n = do
     let len = M.length vec
-    when (n `mod` 100 == 0) $ putStrLn $ "Progress: " ++ show (n * 100 `div` totalSteps) ++ "%"
-    hFlush stdout  -- Ensure immediate output
+    when (n `mod` (totalSteps `div` 100) == 0) $ do
+        putStrLn $ "Progress: " ++ show (n * 100 `div` totalSteps) ++ "%"
+        hFlush stdout  -- Ensure immediate output
     if n * n < len
         then do
             let indices = [n * n, n * n + n .. len - 1]
             mapM_ (\i -> M.write vec i 0) indices
         else return ()
-
--- Parallelize the marking of non-primes
-parMarkNonPrimes :: M.IOVector Int -> Int -> Int -> [(Int, Int)]
-parMarkNonPrimes _ n len =
-    let indices = [n * n, n * n + n .. len - 1]
-        updates = map (\i -> (i, 0)) indices
-    in updates `using` parListChunk 1000 rdeepseq
 
 -- Efficiently filter prime numbers
 efficientFilter :: Vector Int -> Vector Int
@@ -79,8 +73,19 @@ printEveryThousandthPrime primes = do
 -- Find the nth prime number
 findNthPrime :: Int -> IO Int
 findNthPrime nth = do
-    let initialLimit = 1000000  -- Initial estimate for the limit
-    primes <- generatePrimes initialLimit
+    let initialLimit = estimateLimit nth  -- Estimate initial limit based on nth prime
+    findNthPrimeHelper nth initialLimit 0 initialLimit
+
+-- Estimate the upper bound for nth prime using the prime number theorem
+estimateLimit :: Int -> Int
+estimateLimit n = ceiling (fromIntegral n * log (fromIntegral n * log (fromIntegral n)))
+
+-- Find the nth prime number with progress tracking
+findNthPrimeHelper :: Int -> Int -> Int -> Int -> IO Int
+findNthPrimeHelper nth limit totalWork initialLimit = do
+    let progress = (totalWork * 100) `div` initialLimit
+    putStrLn $ "Overall Progress: " ++ show progress ++ "%"
+    primes <- generatePrimes limit
     if V.length primes >= nth
         then return (primes ! (nth - 1))
-        else findNthPrime (initialLimit * 2)  -- Double the limit and try again
+        else findNthPrimeHelper nth (limit * 2) (totalWork + limit) initialLimit
