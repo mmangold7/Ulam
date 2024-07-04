@@ -1,0 +1,21 @@
+# Ignore build artifacts
+dist/
+dist-newstyle/
+cabal.project.local
+.stack-work/
+*.tix
+*.prof
+*.eventlog
+*.hi
+*.o
+*.dyn_o
+*.dyn_hi
+
+# Ignore generated documentation
+doc/html/
+
+# Ignore GHC environment files
+.ghc.environment.*
+
+# Ignore Haskell IDE files
+.idea/

@@ -1,0 +1,23 @@
+cabal-version:      3.0
+name:               Ulam
+version:            0.1.0.0
+license:            MIT
+license-file:       LICENSE
+author:             Matt Mangold
+maintainer:         mmangold7@gmail.com
+category:           Math
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+executable Ulam
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:    base ^>=4.17.2.1,
+                      vector,
+                      parallel
+    hs-source-dirs:   app
+    ghc-options:      -threaded
+    default-language: Haskell2010
