@@ -109,7 +109,7 @@ createPrimeImage width height primes = generateImage pixelFunc width height
     pixelFunc x y =
       let
         coordX = (x `div` pixelSize) - centerX
-        coordY = (y `div` pixelSize) - centerY
+        coordY = - (y `div` pixelSize) + centerY
         num = coordToNum coordX coordY
       in if num > 0 && num < V.length primes && primes ! num then 0 else 255
 
