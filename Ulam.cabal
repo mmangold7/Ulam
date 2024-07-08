@@ -19,7 +19,8 @@ executable Ulam
     build-depends:    base ^>=4.17.2.1,
                       vector,
                       parallel,
-                      JuicyPixels
+                      JuicyPixels,
+                      time
     hs-source-dirs:   app
     ghc-options:      -threaded
     default-language: Haskell2010

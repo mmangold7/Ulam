@@ -8,12 +8,14 @@ import System.Environment (getArgs)
 import GHC.Conc (getNumProcessors, setNumCapabilities)
 import Control.Monad (when)
 import Codec.Picture
+import Data.Time.Clock (getCurrentTime, diffUTCTime)
 
 pixelSize :: Int
 pixelSize = 1
 
 main :: IO ()
 main = do
+    startTime <- getCurrentTime
     putStrLn "Hello, World!"
     args <- getArgs
     numCores <- getNumProcessors
@@ -35,6 +37,8 @@ main = do
             primes <- generatePrimes maxNum
             createUlamSpiralImage maxNum primes
         _ -> putStrLn "Usage: program 1 <max_num> | program 2 <nth>"
+    endTime <- getCurrentTime
+    putStrLn $ "Execution time: " ++ show (diffUTCTime endTime startTime)
 
 generatePrimes :: Int -> IO (Vector Bool)
 generatePrimes limit = do
@@ -111,10 +115,10 @@ coordToNum x y =
         base = (2 * k - 1) ^ 2
     in case (x, y) of
         (x', y') | x' == k  -> base + (k + y')
-        (x', y') | y' == k  -> base + 2 * k + (k - x')
-        (x', y') | x' == -k -> base + 4 * k + (k - y')
-        (x', y') | y' == -k -> base + 6 * k + (k + x')
-        _                   -> 0
+                 | y' == k  -> base + 2 * k + (k - x')
+                 | x' == -k -> base + 4 * k + (k - y')
+                 | y' == -k -> base + 6 * k + (k + x')
+                 | otherwise -> 0
 
 data Dir = R | U | L | D deriving (Enum, Show)
 
