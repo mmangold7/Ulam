@@ -9,11 +9,9 @@ import GHC.Conc (getNumProcessors, setNumCapabilities)
 import Control.Monad (when)
 import Codec.Picture
 
--- Configurable pixel size
 pixelSize :: Int
 pixelSize = 1
 
--- Main function
 main :: IO ()
 main = do
     putStrLn "Hello, World!"
@@ -33,12 +31,11 @@ main = do
             putStrLn $ "Mode 2: Finding the " ++ show nth ++ "th prime"
             nthPrime <- findNthPrime nth
             putStrLn $ "The " ++ show nth ++ "th prime is " ++ show nthPrime
-            let maxNum = estimateLimit nth  -- Estimate the limit to find enough primes for the image
+            let maxNum = estimateLimit nth
             primes <- generatePrimes maxNum
             createUlamSpiralImage maxNum primes
         _ -> putStrLn "Usage: program 1 <max_num> | program 2 <nth>"
 
--- Generate prime numbers up to a given limit using the Sieve of Eratosthenes
 generatePrimes :: Int -> IO (Vector Bool)
 generatePrimes limit = do
     putStrLn "Initializing vector..."
@@ -63,22 +60,19 @@ generatePrimes limit = do
                 mapM_ (mapM_ (\i -> M.write vec i False)) chunks
             else return ()
 
--- Helper function to chunk a list
 chunkList :: Int -> [a] -> [[a]]
 chunkList _ [] = []
 chunkList n xs = let (ys, zs) = splitAt n xs in ys : chunkList n zs
 
--- Find the nth prime number
 findNthPrime :: Int -> IO Int
 findNthPrime nth = do
-    let initialLimit = estimateLimit nth  -- Estimate initial limit based on nth prime
+    let initialLimit = estimateLimit nth
     findNthPrimeHelper nth initialLimit 0 initialLimit
 
--- Estimate the upper bound for nth prime using the prime number theorem
+-- from prime number theorem
 estimateLimit :: Int -> Int
 estimateLimit n = ceiling (fromIntegral n * log (fromIntegral n * log (fromIntegral n)))
 
--- Find the nth prime number with progress tracking
 findNthPrimeHelper :: Int -> Int -> Int -> Int -> IO Int
 findNthPrimeHelper nth limit totalWork initialLimit = do
     let progress = (totalWork * 100) `div` initialLimit
@@ -89,7 +83,6 @@ findNthPrimeHelper nth limit totalWork initialLimit = do
         then return (primeIndices ! (nth - 1))
         else findNthPrimeHelper nth (limit * 2) (totalWork + limit) initialLimit
 
--- Create Ulam Spiral Image
 createUlamSpiralImage :: Int -> Vector Bool -> IO ()
 createUlamSpiralImage maxNum primes = do
     let size = ceiling (sqrt (fromIntegral maxNum)) :: Int
@@ -99,7 +92,6 @@ createUlamSpiralImage maxNum primes = do
     savePngImage "ulam_spiral.png" (ImageY8 img)
     putStrLn "Ulam spiral image created: ulam_spiral.png"
 
--- Create the image of the prime numbers in an Ulam spiral
 createPrimeImage :: Int -> Int -> Vector Bool -> Image Pixel8
 createPrimeImage width height primes = generateImage pixelFunc width height
   where
@@ -113,7 +105,6 @@ createPrimeImage width height primes = generateImage pixelFunc width height
         num = coordToNum coordX coordY
       in if num > 0 && num < V.length primes && primes ! num then 0 else 255
 
--- Map coordinates to number in Ulam spiral
 coordToNum :: Int -> Int -> Int
 coordToNum x y = 
     let k = max (abs x) (abs y)
@@ -125,28 +116,22 @@ coordToNum x y =
         (x', y') | y' == -k -> base + 6 * k + (k + x')
         _                   -> 0
 
--- Directions for the Ulam spiral
 data Dir = R | U | L | D deriving (Enum, Show)
 
--- Generate the sequence of directions for the spiral
 spiralSeq :: Int -> [Dir]
 spiralSeq n = replicate n R ++ replicate n U ++ replicate (n + 1) L ++ replicate (n + 1) D
 
--- Infinite list of spiral directions
 spiral :: [Dir]
 spiral = concatMap spiralSeq [1, 3..]
 
--- Calculate the next coordinate based on direction
 move :: (Int, Int) -> Dir -> (Int, Int)
 move (x, y) R = (x + 1, y)
 move (x, y) U = (x, y + 1)
 move (x, y) L = (x - 1, y)
 move (x, y) D = (x, y - 1)
 
--- Generate the positions for the spiral
 spiralPos :: [(Int, Int)]
 spiralPos = scanl move (0, 0) spiral
 
--- Entry point
 mainEntry :: IO ()
 mainEntry = main
