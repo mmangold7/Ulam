@@ -1,16 +1,13 @@
 module Main where
 
 import Control.Parallel.Strategies (parMap, rdeepseq)
-import Data.Vector (Vector, (!), generate, thaw, freeze)
+import Data.Vector (Vector, (!), freeze)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as M
 import System.Environment (getArgs)
 import GHC.Conc (getNumProcessors, setNumCapabilities)
 import Control.Monad (when)
-import Codec.Picture -- For image creation
-import Codec.Picture.Types -- For image manipulation
-import Data.Maybe (fromMaybe)
-import Data.List (elemIndex)
+import Codec.Picture
 
 -- Configurable pixel size
 pixelSize :: Int
@@ -123,17 +120,17 @@ coordToNum x y =
         base = (2 * k - 1) ^ 2
     in case (x, y) of
         (x', y') | x' == k  -> base + (k + y')
-        (x', y') | y' == -k -> base + 2 * k + (k - x')
+        (x', y') | y' == k  -> base + 2 * k + (k - x')
         (x', y') | x' == -k -> base + 4 * k + (k - y')
-        (x', y') | y' == k  -> base + 6 * k + (k + x')
+        (x', y') | y' == -k -> base + 6 * k + (k + x')
         _                   -> 0
 
 -- Directions for the Ulam spiral
-data Dir = R | D | L | U deriving (Enum, Show)
+data Dir = R | U | L | D deriving (Enum, Show)
 
 -- Generate the sequence of directions for the spiral
 spiralSeq :: Int -> [Dir]
-spiralSeq n = replicate n R ++ replicate n D ++ replicate (n + 1) L ++ replicate (n + 1) U
+spiralSeq n = replicate n R ++ replicate n U ++ replicate (n + 1) L ++ replicate (n + 1) D
 
 -- Infinite list of spiral directions
 spiral :: [Dir]
@@ -142,9 +139,9 @@ spiral = concatMap spiralSeq [1, 3..]
 -- Calculate the next coordinate based on direction
 move :: (Int, Int) -> Dir -> (Int, Int)
 move (x, y) R = (x + 1, y)
-move (x, y) D = (x, y - 1)
-move (x, y) L = (x - 1, y)
 move (x, y) U = (x, y + 1)
+move (x, y) L = (x - 1, y)
+move (x, y) D = (x, y - 1)
 
 -- Generate the positions for the spiral
 spiralPos :: [(Int, Int)]
