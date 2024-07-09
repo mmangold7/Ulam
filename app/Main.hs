@@ -233,17 +233,29 @@ applyDiagonalGradient :: Image PixelRGB8 -> Image PixelRGB8
 applyDiagonalGradient img = generateImage gradientPixel (imageWidth img) (imageHeight img)
   where
     primes = findPrimeCoordinates img
-    diagCounts = countDiagonals primes
-    maxCount = maximum (map snd diagCounts)
+    diagCounts1 = countDiagonals primes (\(x, y) -> x - y)
+    diagCounts2 = countDiagonals primes (\(x, y) -> x + y)
+    maxCount = maximum (map snd (diagCounts1 ++ diagCounts2))
     gradientPixel :: Int -> Int -> PixelRGB8
     gradientPixel x y =
-        let diagIndex = x - y
-            count = lookupDiagCount diagIndex diagCounts
-            intensity = scaleToIntensity count maxCount
+        let diagIndex1 = x - y
+            diagIndex2 = x + y
+            count1 = lookupDiagCount diagIndex1 diagCounts1
+            count2 = lookupDiagCount diagIndex2 diagCounts2
+            intensity = scaleToIntensity (max count1 count2) maxCount
         in PixelRGB8 intensity intensity intensity
-    countDiagonals = map (\g -> (fst (head g), length g)) . groupBy ((==) `on` fst) . sortBy (comparing fst) . map (\(x, y) -> (x - y, (x, y)))
-    lookupDiagCount i = maybe 0 id . lookup i
-    scaleToIntensity count maxCount = fromIntegral (count * 255 `div` maxCount)
+
+countDiagonals :: [(Int, Int)] -> ((Int, Int) -> Int) -> [(Int, Int)]
+countDiagonals primes f = map (\g -> (fst (head g), length g)) 
+                           (groupBy ((==) `on` fst) 
+                           (sortBy (comparing fst) 
+                           (map (\p -> (f p, p)) primes)))
+
+lookupDiagCount :: Int -> [(Int, Int)] -> Int
+lookupDiagCount i lst = maybe 0 id . lookup i $ lst
+
+scaleToIntensity :: Int -> Int -> Pixel8
+scaleToIntensity count maxCount = fromIntegral (count * 255 `div` maxCount)
 
 applyDensityGradient :: Image PixelRGB8 -> Image PixelRGB8
 applyDensityGradient img = generateImage gradientPixel (imageWidth img) (imageHeight img)
@@ -253,9 +265,15 @@ applyDensityGradient img = generateImage gradientPixel (imageWidth img) (imageHe
     maxDensity = maximum (map snd densityMap)
     gradientPixel :: Int -> Int -> PixelRGB8
     gradientPixel x y =
-        let density = lookupDensity (x, y) densityMap
+        let density = lookupDensity (x `div` 10, y `div` 10) densityMap
             intensity = scaleToIntensity density maxDensity
         in PixelRGB8 intensity intensity intensity
-    calculateDensity = map (\g -> (fst (head g), length g)) . groupBy ((==) `on` fst) . sortBy (comparing fst) . map (\(x, y) -> ((x `div` 10, y `div` 10), (x, y)))
-    lookupDensity coord = maybe 0 id . lookup coord
-    scaleToIntensity density maxDensity = fromIntegral (density * 255 `div` maxDensity)
+
+calculateDensity :: [(Int, Int)] -> [((Int, Int), Int)]
+calculateDensity = map (\g -> (fst (head g), length g)) 
+                  . groupBy ((==) `on` fst) 
+                  . sortBy (comparing fst) 
+                  . map (\(x, y) -> ((x `div` 10, y `div` 10), (x, y)))
+
+lookupDensity :: (Int, Int) -> [((Int, Int), Int)] -> Int
+lookupDensity coord lst = maybe 0 id . lookup coord $ lst
