@@ -9,7 +9,7 @@ import GHC.Conc (getNumProcessors, setNumCapabilities)
 import Control.Monad (when)
 import Codec.Picture
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
-import Data.List (maximumBy, groupBy, sortBy)
+import Data.List (groupBy, sortBy)
 import Data.Ord (comparing)
 import Data.Function (on)
 
@@ -42,7 +42,13 @@ main = do
         ["3", inputFile] -> do
             putStrLn $ "Mode 3: Analyzing and highlighting the Ulam spiral from " ++ inputFile
             analyzeAndHighlightImage inputFile "ulam_highlighted.png"
-        _ -> putStrLn "Usage: program 1 <max_num> | program 2 <nth> | program 3 <input_file>"
+        ["4", inputFile] -> do
+            putStrLn $ "Mode 4: Visualizing diagonals with gradient from " ++ inputFile
+            visualizeDiagonalsGradient inputFile "ulam_diagonals_gradient.png"
+        ["5", inputFile] -> do
+            putStrLn $ "Mode 5: Visualizing density with gradient from " ++ inputFile
+            visualizeDensityGradient inputFile "ulam_density_gradient.png"
+        _ -> putStrLn "Usage: program 1 <max_num> | program 2 <nth> | program 3 <input_file> | program 4 <input_file> | program 5 <input_file>"
     endTime <- getCurrentTime
     putStrLn $ "Execution time: " ++ show (diffUTCTime endTime startTime)
 
@@ -157,6 +163,30 @@ analyzeAndHighlightImage inputFile outputFile = do
             savePngImage outputFile (ImageRGB8 highlightedImg)
             putStrLn $ "Highlighted image saved as " ++ outputFile
 
+visualizeDiagonalsGradient :: FilePath -> FilePath -> IO ()
+visualizeDiagonalsGradient inputFile outputFile = do
+    putStrLn $ "Loading image from " ++ inputFile
+    imgResult <- readImage inputFile
+    case imgResult of
+        Left err -> putStrLn $ "Error loading image: " ++ err
+        Right dynImg -> do
+            let img = convertImage dynImg
+            let gradientImg = applyDiagonalGradient img
+            savePngImage outputFile (ImageRGB8 gradientImg)
+            putStrLn $ "Diagonals gradient image saved as " ++ outputFile
+
+visualizeDensityGradient :: FilePath -> FilePath -> IO ()
+visualizeDensityGradient inputFile outputFile = do
+    putStrLn $ "Loading image from " ++ inputFile
+    imgResult <- readImage inputFile
+    case imgResult of
+        Left err -> putStrLn $ "Error loading image: " ++ err
+        Right dynImg -> do
+            let img = convertImage dynImg
+            let gradientImg = applyDensityGradient img
+            savePngImage outputFile (ImageRGB8 gradientImg)
+            putStrLn $ "Density gradient image saved as " ++ outputFile
+
 convertImage :: DynamicImage -> Image PixelRGB8
 convertImage dynImg = case dynImg of
     ImageRGBA8 img -> pixelMap rgbaToRGB8 img
@@ -198,3 +228,34 @@ findClustersWithHighPrimeDensity primes = concat $ take 1 $ reverse $ sortBy (co
   where
     clusterSize = 10  -- Define the size of clusters
     clusterGroup (x, y) = (x `div` clusterSize, y `div` clusterSize)
+
+applyDiagonalGradient :: Image PixelRGB8 -> Image PixelRGB8
+applyDiagonalGradient img = generateImage gradientPixel (imageWidth img) (imageHeight img)
+  where
+    primes = findPrimeCoordinates img
+    diagCounts = countDiagonals primes
+    maxCount = maximum (map snd diagCounts)
+    gradientPixel :: Int -> Int -> PixelRGB8
+    gradientPixel x y =
+        let diagIndex = x - y
+            count = lookupDiagCount diagIndex diagCounts
+            intensity = scaleToIntensity count maxCount
+        in PixelRGB8 intensity intensity intensity
+    countDiagonals = map (\g -> (fst (head g), length g)) . groupBy ((==) `on` fst) . sortBy (comparing fst) . map (\(x, y) -> (x - y, (x, y)))
+    lookupDiagCount i = maybe 0 id . lookup i
+    scaleToIntensity count maxCount = fromIntegral (count * 255 `div` maxCount)
+
+applyDensityGradient :: Image PixelRGB8 -> Image PixelRGB8
+applyDensityGradient img = generateImage gradientPixel (imageWidth img) (imageHeight img)
+  where
+    primes = findPrimeCoordinates img
+    densityMap = calculateDensity primes
+    maxDensity = maximum (map snd densityMap)
+    gradientPixel :: Int -> Int -> PixelRGB8
+    gradientPixel x y =
+        let density = lookupDensity (x, y) densityMap
+            intensity = scaleToIntensity density maxDensity
+        in PixelRGB8 intensity intensity intensity
+    calculateDensity = map (\g -> (fst (head g), length g)) . groupBy ((==) `on` fst) . sortBy (comparing fst) . map (\(x, y) -> ((x `div` 10, y `div` 10), (x, y)))
+    lookupDensity coord = maybe 0 id . lookup coord
+    scaleToIntensity density maxDensity = fromIntegral (density * 255 `div` maxDensity)
