@@ -161,6 +161,11 @@ convertImage :: DynamicImage -> Image PixelRGB8
 convertImage dynImg = case dynImg of
     ImageRGBA8 img -> pixelMap rgbaToRGB8 img
     ImageRGB8 img -> img
+    ImageY8 img -> pixelMap (\p -> PixelRGB8 p p p) img
+    ImageY16 img -> pixelMap (\p -> let p' = fromIntegral (p `div` 256) in PixelRGB8 p' p' p') img
+    ImageYF img -> pixelMap (\p -> let p' = floor (p * 255) in PixelRGB8 p' p' p') img
+    ImageYA8 img -> pixelMap (\(PixelYA8 y _) -> PixelRGB8 y y y) img
+    ImageYA16 img -> pixelMap (\(PixelYA16 y _) -> let y' = fromIntegral (y `div` 256) in PixelRGB8 y' y' y') img
     _ -> error "Unsupported image format"
 
 rgbaToRGB8 :: PixelRGBA8 -> PixelRGB8
