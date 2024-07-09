@@ -9,6 +9,9 @@ import GHC.Conc (getNumProcessors, setNumCapabilities)
 import Control.Monad (when)
 import Codec.Picture
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
+import Data.List (maximumBy, groupBy, sortBy)
+import Data.Ord (comparing)
+import Data.Function (on)
 
 pixelSize :: Int
 pixelSize = 1
@@ -36,7 +39,10 @@ main = do
             let maxNum = estimateLimit nth
             primes <- generatePrimes maxNum
             createUlamSpiralImage maxNum primes
-        _ -> putStrLn "Usage: program 1 <max_num> | program 2 <nth>"
+        ["3", inputFile] -> do
+            putStrLn $ "Mode 3: Analyzing and highlighting the Ulam spiral from " ++ inputFile
+            analyzeAndHighlightImage inputFile "ulam_highlighted.png"
+        _ -> putStrLn "Usage: program 1 <max_num> | program 2 <nth> | program 3 <input_file>"
     endTime <- getCurrentTime
     putStrLn $ "Execution time: " ++ show (diffUTCTime endTime startTime)
 
@@ -73,7 +79,6 @@ findNthPrime nth = do
     let initialLimit = estimateLimit nth
     findNthPrimeHelper nth initialLimit 0 initialLimit
 
--- from prime number theorem
 estimateLimit :: Int -> Int
 estimateLimit n = ceiling (fromIntegral n * log (fromIntegral n * log (fromIntegral n)))
 
@@ -139,3 +144,52 @@ spiralPos = scanl move (0, 0) spiral
 
 mainEntry :: IO ()
 mainEntry = main
+
+analyzeAndHighlightImage :: FilePath -> FilePath -> IO ()
+analyzeAndHighlightImage inputFile outputFile = do
+    putStrLn $ "Loading image from " ++ inputFile
+    imgResult <- readImage inputFile
+    case imgResult of
+        Left err -> putStrLn $ "Error loading image: " ++ err
+        Right dynImg -> do
+            let img = convertImage dynImg
+            let highlightedImg = highlightDiagonalsAndClusters img
+            savePngImage outputFile (ImageRGB8 highlightedImg)
+            putStrLn $ "Highlighted image saved as " ++ outputFile
+
+convertImage :: DynamicImage -> Image PixelRGB8
+convertImage dynImg = case dynImg of
+    ImageRGBA8 img -> pixelMap rgbaToRGB8 img
+    ImageRGB8 img -> img
+    _ -> error "Unsupported image format"
+
+rgbaToRGB8 :: PixelRGBA8 -> PixelRGB8
+rgbaToRGB8 (PixelRGBA8 r g b _) = PixelRGB8 r g b
+
+highlightDiagonalsAndClusters :: Image PixelRGB8 -> Image PixelRGB8
+highlightDiagonalsAndClusters img = generateImage highlightPixel (imageWidth img) (imageHeight img)
+  where
+    primes = findPrimeCoordinates img
+    diagPrimes = findDiagonalsWithMostPrimes primes
+    clusterPrimes = findClustersWithHighPrimeDensity primes
+    highlightPixel :: Int -> Int -> PixelRGB8
+    highlightPixel x y
+      | (x, y) `elem` diagPrimes = PixelRGB8 255 0 0  -- Highlight diagonals in red
+      | (x, y) `elem` clusterPrimes = PixelRGB8 0 255 0  -- Highlight clusters in green
+      | otherwise = pixelAt img x y
+
+findPrimeCoordinates :: Image PixelRGB8 -> [(Int, Int)]
+findPrimeCoordinates img = [(x, y) | x <- [0..imageWidth img - 1], y <- [0..imageHeight img - 1], isPrimePixel (pixelAt img x y)]
+  where
+    isPrimePixel (PixelRGB8 r g b) = r == 0 && g == 0 && b == 0  -- Assuming prime pixels are black
+
+findDiagonalsWithMostPrimes :: [(Int, Int)] -> [(Int, Int)]
+findDiagonalsWithMostPrimes primes = concat $ take 1 $ reverse $ sortBy (comparing length) $ groupBy ((==) `on` diagGroup) $ sortBy (comparing diagGroup) primes
+  where
+    diagGroup (x, y) = x - y
+
+findClustersWithHighPrimeDensity :: [(Int, Int)] -> [(Int, Int)]
+findClustersWithHighPrimeDensity primes = concat $ take 1 $ reverse $ sortBy (comparing length) $ groupBy ((==) `on` clusterGroup) $ sortBy (comparing clusterGroup) primes
+  where
+    clusterSize = 10  -- Define the size of clusters
+    clusterGroup (x, y) = (x `div` clusterSize, y `div` clusterSize)
